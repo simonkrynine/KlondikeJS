@@ -176,3 +176,65 @@ button:hover {
   outline-offset: -2px;
   border-radius: 6px;
 }
+
+/* ── Win overlay ─────────────────────────────────── */
+
+.win-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.win-overlay.hidden {
+  display: none;
+}
+
+.win-box {
+  background: white;
+  color: #1a1a1a;
+  border-radius: 12px;
+  padding: 48px 64px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  position: relative;
+  z-index: 101;
+}
+
+.win-box h2 {
+  font-size: 2.5rem;
+  margin-bottom: 24px;
+  color: #1a6b3a;
+}
+
+.win-box button {
+  background: #1a6b3a;
+  color: white;
+  padding: 10px 28px;
+  font-size: 1rem;
+  border-radius: 6px;
+}
+
+.win-box button:hover {
+  background: #145530;
+}
+
+/* ── Confetti ────────────────────────────────────── */
+
+.confetti-piece {
+  position: fixed;
+  width: 10px;
+  height: 14px;
+  top: -20px;
+  opacity: 0;
+  animation: confetti-fall linear forwards;
+}
+
+@keyframes confetti-fall {
+  0%   { transform: translateY(0) rotate(0deg);   opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
