@@ -1,3 +1,9 @@
+:root {
+  --card-w: 80px;
+  --card-h: 112px;
+  --pile-gap: 12px;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -54,7 +60,7 @@ button:hover {
 
 .control-row {
   display: flex;
-  gap: 12px;
+  gap: var(--pile-gap);
   align-items: flex-start;
   margin-bottom: 20px;
 }
@@ -65,15 +71,15 @@ button:hover {
 
 .tableau-row {
   display: flex;
-  gap: 12px;
+  gap: var(--pile-gap);
   align-items: flex-start;
 }
 
 /* ── Pile placeholders (stock, waste, foundations) ── */
 
 .pile {
-  width: 80px;
-  height: 112px;
+  width: var(--card-w);
+  height: var(--card-h);
   border-radius: 6px;
   border: 2px dashed rgba(255, 255, 255, 0.35);
   position: relative;
@@ -92,7 +98,7 @@ button:hover {
 /* ── Tableau columns ─────────────────────────────── */
 
 .tableau-col {
-  width: 80px;
+  width: var(--card-w);
   min-height: 112px;
   position: relative;
   flex-shrink: 0;
@@ -101,8 +107,8 @@ button:hover {
 /* ── Cards ───────────────────────────────────────── */
 
 .card {
-  width: 80px;
-  height: 112px;
+  width: var(--card-w);
+  height: var(--card-h);
   border-radius: 6px;
   position: absolute;
   top: 0;
@@ -175,6 +181,20 @@ button:hover {
   outline: 2px dashed #00FF88;
   outline-offset: -2px;
   border-radius: 6px;
+}
+
+/* ── Responsive ──────────────────────────────────── */
+
+@media (max-width: 800px) {
+  :root {
+    --card-w: 60px;
+    --card-h: 84px;
+    --pile-gap: 8px;
+  }
+  body {
+    padding: 8px 10px;
+    min-width: 600px;
+  }
 }
 
 /* ── Win overlay ─────────────────────────────────── */

@@ -1,19 +1,60 @@
-import { gameState, initGame, drawFromStock, moveCard, isValidTableauMove, isValidFoundationMove, checkWin } from './gameState.js';
+import { gameState, initGame, drawFromStock, moveCard, undoLastMove, isValidTableauMove, isValidFoundationMove, checkWin } from './gameState.js';
 import { createCardElement } from './card.js';
 
 const SUIT_LABELS = ['♠', '♥', '♦', '♣'];
-
 const CONFETTI_COLORS = ['#FFD700', '#FF4444', '#44BBFF', '#FF88FF', '#44FF88', '#FFAA00'];
 
 let dragState = null;
 let selectState = null;
+let timerInterval = null;
+
+// ── CSS helpers ───────────────────────────────────────────────────────────────
+
+const getCssVar = (name) =>
+  parseInt(getComputedStyle(document.documentElement).getPropertyValue(name));
+
+// ── Stats & timer ─────────────────────────────────────────────────────────────
+
+const updateStats = () => {
+  const mins = String(Math.floor(gameState.timerSeconds / 60)).padStart(2, '0');
+  const secs = String(gameState.timerSeconds % 60).padStart(2, '0');
+  document.getElementById('stats').textContent =
+    `Moves: ${gameState.moveCount} | Time: ${mins}:${secs}`;
+};
+
+const startTimer = () => {
+  if (gameState.timerStarted) return;
+  gameState.timerStarted = true;
+  timerInterval = setInterval(() => {
+    gameState.timerSeconds++;
+    updateStats();
+  }, 1000);
+};
+
+const stopTimer = () => {
+  clearInterval(timerInterval);
+  timerInterval = null;
+};
+
+// ── Post-move hooks ───────────────────────────────────────────────────────────
 
 const afterMove = () => {
+  startTimer();
   renderGame();
+  updateStats();
   if (checkWin()) showWinOverlay();
 };
 
+const afterDraw = () => {
+  startTimer();
+  renderGame();
+  updateStats();
+};
+
+// ── Win overlay ───────────────────────────────────────────────────────────────
+
 const showWinOverlay = () => {
+  stopTimer();
   const overlay = document.getElementById('win-overlay');
   overlay.classList.remove('hidden');
   const container = document.getElementById('win-confetti');
@@ -28,6 +69,24 @@ const showWinOverlay = () => {
     container.appendChild(piece);
   }
 };
+
+const startNewGame = () => {
+  stopTimer();
+  document.getElementById('win-overlay').classList.add('hidden');
+  initGame();
+  renderGame();
+  updateStats();
+};
+
+// ── Undo ──────────────────────────────────────────────────────────────────────
+
+const doUndo = () => {
+  undoLastMove();
+  renderGame();
+  updateStats();
+};
+
+// ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Renders the full game state to the DOM.
@@ -46,8 +105,14 @@ export const setupListeners = () => {
   document.getElementById('stock').addEventListener('click', () => {
     selectState = null;
     drawFromStock();
-    renderGame();
+    afterDraw();
   });
+
+  document.getElementById('btn-new-game').addEventListener('click', startNewGame);
+
+  document.getElementById('btn-undo').addEventListener('click', doUndo);
+
+  document.getElementById('btn-play-again').addEventListener('click', startNewGame);
 
   document.addEventListener('dragstart', handleDragStart);
   document.addEventListener('dragover', handleDragOver);
@@ -59,12 +124,10 @@ export const setupListeners = () => {
   document.addEventListener('click', handleClick);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') clearSelection();
-  });
-
-  document.getElementById('btn-play-again').addEventListener('click', () => {
-    document.getElementById('win-overlay').classList.add('hidden');
-    initGame();
-    renderGame();
+    if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      doUndo();
+    }
   });
 };
 
@@ -73,7 +136,6 @@ export const setupListeners = () => {
 const getDropTarget = (el) =>
   el.closest('.tableau-col') || el.closest('.foundation');
 
-/** Works for both dragState and selectState via the optional state param. */
 const isValidDrop = (target, state = dragState) => {
   if (!state) return false;
   if (target.classList.contains('tableau-col')) {
@@ -116,7 +178,7 @@ const handleDragStart = (e) => {
   }
 
   e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', ''); // required for Firefox
+  e.dataTransfer.setData('text/plain', '');
 };
 
 const handleDragOver = (e) => {
@@ -173,7 +235,6 @@ const doSelect = (cardEl) => {
       from: { type: 'tableau', index: col, cardIndex: ci },
       cards: gameState.tableau[col].slice(ci),
     };
-    // Highlight the full sequence
     const colEl = document.getElementById(`tableau-${col}`);
     Array.from(colEl.children).slice(ci).forEach(el => el.classList.add('selected'));
   } else if (fromType === 'waste') {
@@ -193,10 +254,8 @@ const doSelect = (cardEl) => {
 };
 
 const handleClick = (e) => {
-  if (e.detail >= 2) return; // handled by dblclick
-  // Stock has its own listener; don't double-handle it
+  if (e.detail >= 2) return;
   if (e.target.closest('#stock')) return;
-  // Ignore clicks that were part of a drag operation
   if (dragState) return;
 
   const cardEl = e.target.closest('.card[draggable]');
@@ -211,7 +270,6 @@ const handleClick = (e) => {
       selectState = null;
       afterMove();
     } else if (cardEl) {
-      // Clicked a different card — deselect and re-select
       clearSelection();
       doSelect(cardEl);
     } else {
@@ -236,7 +294,7 @@ const handleDblClick = (e) => {
   if (fromType === 'tableau') {
     const col = parseInt(fromCol);
     const ci = parseInt(fromCardIndex);
-    if (ci !== gameState.tableau[col].length - 1) return; // only top card
+    if (ci !== gameState.tableau[col].length - 1) return;
     card = gameState.tableau[col][ci];
     from = { type: 'tableau', index: col, cardIndex: ci };
   } else if (fromType === 'waste') {
@@ -294,6 +352,10 @@ const renderFoundations = () => {
 };
 
 const renderTableau = () => {
+  const cardH = getCssVar('--card-h');
+  const faceUpOff = Math.round(cardH * 0.25);
+  const faceDownOff = Math.round(cardH * 0.179);
+
   gameState.tableau.forEach((col, i) => {
     const el = document.getElementById(`tableau-${i}`);
     el.innerHTML = '';
@@ -308,12 +370,12 @@ const renderTableau = () => {
         cardEl.dataset.fromCardIndex = String(j);
       }
       el.appendChild(cardEl);
-      top += card.faceUp ? 28 : 20;
+      top += card.faceUp ? faceUpOff : faceDownOff;
     });
     if (col.length > 0) {
       const last = col[col.length - 1];
-      const lastTop = top - (last.faceUp ? 28 : 20);
-      el.style.height = `${lastTop + 112}px`;
+      const lastTop = top - (last.faceUp ? faceUpOff : faceDownOff);
+      el.style.height = `${lastTop + cardH}px`;
     }
   });
 };
