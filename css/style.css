@@ -1,0 +1,178 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #1a6b3a;
+  font-family: sans-serif;
+  color: white;
+  min-width: 600px;
+  padding: 12px 16px;
+}
+
+/* ── Top bar ─────────────────────────────────────── */
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.top-bar h1 {
+  font-size: 1.4rem;
+  letter-spacing: 1px;
+}
+
+.stats {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+button:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Layout rows ─────────────────────────────────── */
+
+.control-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.gap {
+  flex: 1;
+}
+
+.tableau-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/* ── Pile placeholders (stock, waste, foundations) ── */
+
+.pile {
+  width: 80px;
+  height: 112px;
+  border-radius: 6px;
+  border: 2px dashed rgba(255, 255, 255, 0.35);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+}
+
+.pile.empty {
+  cursor: pointer;
+}
+
+/* ── Tableau columns ─────────────────────────────── */
+
+.tableau-col {
+  width: 80px;
+  min-height: 112px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* ── Cards ───────────────────────────────────────── */
+
+.card {
+  width: 80px;
+  height: 112px;
+  border-radius: 6px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  user-select: none;
+}
+
+.card.face-up {
+  background: white;
+  border: 1px solid #bbb;
+  cursor: pointer;
+}
+
+.card.face-up.red {
+  color: #cc0000;
+}
+
+.card.face-up.black {
+  color: #1a1a1a;
+}
+
+.card.face-down {
+  background-color: #1e3a8a;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.07) 0px,
+      rgba(255, 255, 255, 0.07) 2px,
+      transparent 2px,
+      transparent 10px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.07) 0px,
+      rgba(255, 255, 255, 0.07) 2px,
+      transparent 2px,
+      transparent 10px
+    );
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+}
+
+.card-label {
+  position: absolute;
+  font-size: 0.75rem;
+  font-weight: bold;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.card-label--top {
+  top: 5px;
+  left: 6px;
+}
+
+.card-label--bottom {
+  bottom: 5px;
+  right: 6px;
+  transform: rotate(180deg);
+}
+
+/* ── Selection & drag-and-drop ───────────────────── */
+
+.card.selected {
+  outline: 2px solid #FFD700;
+  outline-offset: -2px;
+}
+
+.drop-valid {
+  outline: 2px dashed #00FF88;
+  outline-offset: -2px;
+  border-radius: 6px;
+}
