@@ -75,33 +75,42 @@ button:hover {
   align-items: flex-start;
 }
 
-/* ── Pile placeholders (stock, waste, foundations) ── */
+/* ── Pile containers ─────────────────────────────── */
 
-.pile {
+.pile-container {
   width: var(--card-w);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.pile-container--stock,
+.pile-container--waste,
+.pile-container--foundation {
+  height: var(--card-h);
+}
+
+.pile-container--tableau {
+  min-height: 112px;
+}
+
+.pile-empty {
+  width: 100%;
   height: var(--card-h);
   border-radius: 6px;
   border: 2px dashed rgba(255, 255, 255, 0.35);
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.6rem;
   color: rgba(255, 255, 255, 0.45);
-  flex-shrink: 0;
 }
 
-.pile.empty {
+.pile-empty--clickable {
   cursor: pointer;
 }
 
-/* ── Tableau columns ─────────────────────────────── */
-
-.tableau-col {
-  width: var(--card-w);
-  min-height: 112px;
-  position: relative;
-  flex-shrink: 0;
+.pile-container--tableau .pile-empty {
+  border: none;
 }
 
 /* ── Cards ───────────────────────────────────────── */
