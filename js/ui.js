@@ -121,6 +121,7 @@ const renderPile = ({ id, type, cards, stackStyle, faceCount, isClickable, empty
   container.innerHTML = '';
   container.className = `pile-container pile-container--${type}`;
   container.style.height = '';
+  container.style.width = '';
 
   if (cards.length === 0) {
     const el = document.createElement('div');
@@ -133,9 +134,10 @@ const renderPile = ({ id, type, cards, stackStyle, faceCount, isClickable, empty
 
   const faceUpStart = cards.length - faceCount;
   const cardH = getCssVar('--card-h');
+  const cardW = getCssVar('--card-w');
   const faceUpOff = Math.round(cardH * 0.25);
   const faceDownOff = Math.round(cardH * 0.179);
-  const fanOff = Math.round(cardH * 0.18);
+  const fanOff = Math.round(cardW * 0.25);
   let top = 0;
 
   cards.forEach((card, index) => {
@@ -147,7 +149,7 @@ const renderPile = ({ id, type, cards, stackStyle, faceCount, isClickable, empty
       top += isFaceUp ? faceUpOff : faceDownOff;
     } else if (stackStyle === 'fan') {
       const fromEnd = cards.length - 1 - index;
-      cardEl.style.top = fromEnd < FAN_COUNT ? `${(FAN_COUNT - 1 - fromEnd) * fanOff}px` : '0';
+      if (fromEnd < FAN_COUNT) cardEl.style.left = `${(FAN_COUNT - 1 - fromEnd) * fanOff}px`;
     } else {
       cardEl.style.top = '0';
     }
@@ -167,7 +169,7 @@ const renderPile = ({ id, type, cards, stackStyle, faceCount, isClickable, empty
   }
   if (stackStyle === 'fan' && cards.length > 0) {
     const fanCount = Math.min(cards.length, FAN_COUNT);
-    container.style.height = `${(fanCount - 1) * fanOff + cardH}px`;
+    container.style.width = `${(fanCount - 1) * fanOff + cardW}px`;
   }
 
   if (badge != null) {
