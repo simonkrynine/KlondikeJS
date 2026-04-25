@@ -1,7 +1,7 @@
 import { createDeck, shuffleDeck } from './deck.js';
 import { initUI } from './ui.js';
-import { KlondikeGame } from './games/klondike.js';
+import { SawayamaGame } from './games/sawayama.js';
 
 const deck = shuffleDeck(createDeck());
-KlondikeGame.initGame(deck);
-initUI(KlondikeGame);
+SawayamaGame.initGame(deck);
+initUI(SawayamaGame);

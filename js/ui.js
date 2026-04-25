@@ -110,11 +110,13 @@ function buildRow(rowEl, pileIds) {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
+const FAN_COUNT = 3;
+
 const renderGame = () => {
   for (const pile of game.getPiles()) renderPile(pile);
 };
 
-const renderPile = ({ id, type, cards, stackStyle, faceCount, isClickable, emptyLabel }) => {
+const renderPile = ({ id, type, cards, stackStyle, faceCount, isClickable, emptyLabel, badge }) => {
   const container = document.getElementById(`pile-${id}`);
   container.innerHTML = '';
   container.className = `pile-container pile-container--${type}`;
@@ -133,12 +135,22 @@ const renderPile = ({ id, type, cards, stackStyle, faceCount, isClickable, empty
   const cardH = getCssVar('--card-h');
   const faceUpOff = Math.round(cardH * 0.25);
   const faceDownOff = Math.round(cardH * 0.179);
+  const fanOff = Math.round(cardH * 0.18);
   let top = 0;
 
   cards.forEach((card, index) => {
     const isFaceUp = index >= faceUpStart;
     const cardEl = createCardElement({ ...card, faceUp: isFaceUp });
-    cardEl.style.top = stackStyle === 'stacked' ? `${top}px` : '0';
+
+    if (stackStyle === 'stacked') {
+      cardEl.style.top = `${top}px`;
+      top += isFaceUp ? faceUpOff : faceDownOff;
+    } else if (stackStyle === 'fan') {
+      const fromEnd = cards.length - 1 - index;
+      cardEl.style.top = fromEnd < FAN_COUNT ? `${(FAN_COUNT - 1 - fromEnd) * fanOff}px` : '0';
+    } else {
+      cardEl.style.top = '0';
+    }
 
     if (isFaceUp) {
       cardEl.draggable = true;
@@ -146,14 +158,23 @@ const renderPile = ({ id, type, cards, stackStyle, faceCount, isClickable, empty
       cardEl.dataset.cardIndex = index;
     }
     container.appendChild(cardEl);
-
-    if (stackStyle === 'stacked') top += isFaceUp ? faceUpOff : faceDownOff;
   });
 
   if (stackStyle === 'stacked' && cards.length > 0) {
     const lastIsFaceUp = (cards.length - 1) >= faceUpStart;
     const lastOff = lastIsFaceUp ? faceUpOff : faceDownOff;
     container.style.height = `${(top - lastOff) + cardH}px`;
+  }
+  if (stackStyle === 'fan' && cards.length > 0) {
+    const fanCount = Math.min(cards.length, FAN_COUNT);
+    container.style.height = `${(fanCount - 1) * fanOff + cardH}px`;
+  }
+
+  if (badge != null) {
+    const badgeEl = document.createElement('div');
+    badgeEl.className = 'pile-badge';
+    badgeEl.textContent = badge;
+    container.appendChild(badgeEl);
   }
 };
 
