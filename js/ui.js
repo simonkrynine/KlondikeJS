@@ -9,6 +9,14 @@ let selectState = null;
 let timerInterval = null;
 let timerSeconds = 0;
 let timerStarted = false;
+let listenersAttached = false;
+let touchDragState = null;
+let touchCloneEl = null;
+let lastTapTime = 0;
+let lastTapTarget = null;
+
+const DRAG_THRESHOLD = 5;
+const DOUBLE_TAP_DELAY = 300;
 
 // ── CSS helpers ───────────────────────────────────────────────────────────────
 
@@ -253,15 +261,134 @@ const handleDragEnd = () => {
   dragState = null;
 };
 
+// ── Touch drag-and-drop ───────────────────────────────────────────────────────
+
+const handleTouchStart = (e) => {
+  const cardEl = e.target.closest('[data-card-index]');
+  if (!cardEl) return;
+
+  const touch = e.touches[0];
+  const pileId = cardEl.dataset.pileId;
+  const cardIndex = parseInt(cardEl.dataset.cardIndex, 10);
+  const cards = game.getDraggableCards(pileId, cardIndex);
+  if (cards.length === 0) return;
+
+  const rect = cardEl.getBoundingClientRect();
+  touchDragState = {
+    cards,
+    fromPileId: pileId,
+    cardEl,
+    startX: touch.clientX,
+    startY: touch.clientY,
+    offsetX: touch.clientX - rect.left,
+    offsetY: touch.clientY - rect.top,
+    hasDragged: false,
+  };
+};
+
+const handleTouchMove = (e) => {
+  if (!touchDragState) return;
+
+  const touch = e.touches[0];
+  const dx = touch.clientX - touchDragState.startX;
+  const dy = touch.clientY - touchDragState.startY;
+
+  if (!touchDragState.hasDragged) {
+    if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    touchDragState.hasDragged = true;
+    clearSelection();
+    const rect = touchDragState.cardEl.getBoundingClientRect();
+    touchCloneEl = touchDragState.cardEl.cloneNode(true);
+    touchCloneEl.style.position = 'fixed';
+    touchCloneEl.style.left = `${rect.left}px`;
+    touchCloneEl.style.top = `${rect.top}px`;
+    touchCloneEl.style.width = `${rect.width}px`;
+    touchCloneEl.style.height = `${rect.height}px`;
+    touchCloneEl.style.opacity = '0.85';
+    touchCloneEl.style.pointerEvents = 'none';
+    touchCloneEl.style.zIndex = '200';
+    touchCloneEl.style.transform = 'scale(1.05)';
+    touchCloneEl.style.transformOrigin = 'top left';
+    touchCloneEl.style.boxShadow = '0 8px 24px rgba(0,0,0,0.4)';
+    document.body.appendChild(touchCloneEl);
+  }
+
+  e.preventDefault();
+
+  touchCloneEl.style.left = `${touch.clientX - touchDragState.offsetX}px`;
+  touchCloneEl.style.top = `${touch.clientY - touchDragState.offsetY}px`;
+
+  document.querySelectorAll('.drop-valid').forEach(el => el.classList.remove('drop-valid'));
+  const elUnder = document.elementFromPoint(touch.clientX, touch.clientY);
+  const containerEl = elUnder?.closest('.pile-container');
+  if (containerEl) {
+    const toPileId = containerEl.dataset.pileId;
+    if (game.isValidMove(touchDragState.cards, touchDragState.fromPileId, toPileId)) {
+      containerEl.classList.add('drop-valid');
+    }
+  }
+};
+
+const handleTouchEnd = (e) => {
+  if (!touchDragState) return;
+
+  if (touchCloneEl) { touchCloneEl.remove(); touchCloneEl = null; }
+  document.querySelectorAll('.drop-valid').forEach(el => el.classList.remove('drop-valid'));
+
+  if (touchDragState.hasDragged) {
+    const touch = e.changedTouches[0];
+    const elUnder = document.elementFromPoint(touch.clientX, touch.clientY);
+    const containerEl = elUnder?.closest('.pile-container');
+    if (containerEl) {
+      const toPileId = containerEl.dataset.pileId;
+      if (game.isValidMove(touchDragState.cards, touchDragState.fromPileId, toPileId)) {
+        game.executeMove(touchDragState.cards, touchDragState.fromPileId, toPileId);
+        touchDragState = null;
+        afterMove();
+        return;
+      }
+    }
+  }
+
+  touchDragState = null;
+};
+
+const handleTouchCancel = () => {
+  if (touchCloneEl) { touchCloneEl.remove(); touchCloneEl = null; }
+  document.querySelectorAll('.drop-valid').forEach(el => el.classList.remove('drop-valid'));
+  touchDragState = null;
+};
+
 // ── Click handling ────────────────────────────────────────────────────────────
 
 const handleClick = (e) => {
   if (e.detail >= 2) return;
-  if (dragState) return;
+  if (dragState || touchDragState?.hasDragged) return;
 
   const cardEl = e.target.closest('[data-card-index]');
   const containerEl = e.target.closest('.pile-container');
   const pileEl = e.target.closest('[data-pile-id]');
+
+  // Double-tap auto-move for touch (dblclick is unreliable on mobile)
+  const now = Date.now();
+  if (cardEl && now - lastTapTime < DOUBLE_TAP_DELAY && lastTapTarget === cardEl) {
+    lastTapTime = 0;
+    lastTapTarget = null;
+    const pileId = cardEl.dataset.pileId;
+    const cardIndex = parseInt(cardEl.dataset.cardIndex, 10);
+    const cards = game.getDraggableCards(pileId, cardIndex);
+    if (cards.length > 0) {
+      const target = game.getAutoMoveTarget(cards, pileId);
+      if (target && game.isValidMove(cards, pileId, target)) {
+        clearSelection();
+        game.executeMove(cards, pileId, target);
+        afterMove();
+        return;
+      }
+    }
+  }
+  lastTapTime = cardEl ? now : 0;
+  lastTapTarget = cardEl ?? null;
 
   if (selectState) {
     const toPileId = containerEl?.dataset.pileId;
@@ -319,6 +446,10 @@ const handleDblClick = (e) => {
  */
 export function initUI(gameModule) {
   game = gameModule;
+  stopTimer();
+  timerSeconds = 0;
+  timerStarted = false;
+  document.getElementById('win-overlay').classList.add('hidden');
   buildLayout();
   setupListeners();
   renderGame();
@@ -326,6 +457,13 @@ export function initUI(gameModule) {
 }
 
 function setupListeners() {
+  if (listenersAttached) return;
+  listenersAttached = true;
+
+  document.getElementById('btn-main-menu').addEventListener('click', () => {
+    stopTimer();
+    document.getElementById('menu-overlay').classList.remove('hidden');
+  });
   document.getElementById('btn-new-game').addEventListener('click', startNewGame);
   document.getElementById('btn-undo').addEventListener('click', () => {
     if (game.undoLastMove()) {
@@ -340,6 +478,11 @@ function setupListeners() {
   document.addEventListener('dragleave', handleDragLeave);
   document.addEventListener('drop', handleDrop);
   document.addEventListener('dragend', handleDragEnd);
+
+  document.addEventListener('touchstart', handleTouchStart, { passive: true });
+  document.addEventListener('touchmove', handleTouchMove, { passive: false });
+  document.addEventListener('touchend', handleTouchEnd);
+  document.addEventListener('touchcancel', handleTouchCancel);
 
   document.addEventListener('dblclick', handleDblClick);
   document.addEventListener('click', handleClick);

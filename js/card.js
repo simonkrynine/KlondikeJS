@@ -3,6 +3,9 @@
  * @param {Object} card - Card object with suit, rank, color, faceUp
  * @returns {HTMLElement}
  */
+const makeRank = (rank) => { const s = document.createElement('span'); s.textContent = rank; return s; };
+const makeSuit = (suit) => { const s = document.createElement('span'); s.textContent = suit; return s; };
+
 export const createCardElement = (card) => {
   const el = document.createElement('div');
   el.classList.add('card');
@@ -14,11 +17,11 @@ export const createCardElement = (card) => {
 
     const top = document.createElement('div');
     top.classList.add('card-label', 'card-label--top');
-    top.textContent = `${card.rank}${card.suit}`;
+    top.append(makeRank(card.rank), makeSuit(card.suit));
 
     const bottom = document.createElement('div');
     bottom.classList.add('card-label', 'card-label--bottom');
-    bottom.textContent = `${card.rank}${card.suit}`;
+    bottom.append(makeRank(card.rank), makeSuit(card.suit));
 
     el.append(top, bottom);
   } else {

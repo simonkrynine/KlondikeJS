@@ -11,15 +11,23 @@
   <header class="top-bar">
     <h1>Solitaire</h1>
     <div id="stats" class="stats">Moves: 0 | Time: 00:00</div>
-    <div class="controls">
+    <div class="controls hidden">
       <button id="btn-new-game">New Game</button>
       <button id="btn-undo">Undo</button>
+      <button id="btn-main-menu">Main Menu</button>
     </div>
   </header>
   <main>
     <div id="control-row" class="control-row"></div>
     <div id="play-area"   class="tableau-row"></div>
   </main>
+  <div id="menu-overlay" class="menu-overlay">
+    <div class="menu-box">
+      <h2>Choose a Game</h2>
+      <button id="btn-klondike">Klondike</button>
+      <button id="btn-sawayama">Sawayama</button>
+    </div>
+  </div>
   <div id="win-overlay" class="win-overlay hidden">
     <div id="win-confetti"></div>
     <div class="win-box">
