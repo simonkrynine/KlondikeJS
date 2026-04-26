@@ -1,11 +1,11 @@
-/**
- * Creates a DOM element representing a single card.
- * @param {Object} card - Card object with suit, rank, color, faceUp
- * @returns {HTMLElement}
- */
 const makeRank = (rank) => { const s = document.createElement('span'); s.textContent = rank; return s; };
 const makeSuit = (suit) => { const s = document.createElement('span'); s.textContent = suit; return s; };
 
+/**
+ * Creates a DOM element representing a single playing card.
+ * @param {Object} card - Card object with suit, rank, color, faceUp properties
+ * @returns {HTMLElement}
+ */
 export const createCardElement = (card) => {
   const el = document.createElement('div');
   el.classList.add('card');

@@ -1,4 +1,10 @@
-const SUITS = ['♠', '♥', '♦', '♣'];
+import {
+  SUITS,
+  isValidFoundationMove, checkWin, getAutoMoveTarget as getAutoMoveTargetUtil,
+  saveUndo, Loc,
+} from './gameUtils.js';
+
+// ── State ─────────────────────────────────────────────────────────────────────
 
 const state = {
   tableau: [],
@@ -11,6 +17,8 @@ const state = {
   undoStack: [],
 };
 
+// ── Validation ────────────────────────────────────────────────────────────────
+
 const isValidTableauMove = (card, col) => {
   const column = state.tableau[col];
   if (column.length === 0) return true;
@@ -18,29 +26,12 @@ const isValidTableauMove = (card, col) => {
   return top.rankValue === card.rankValue + 1 && top.color !== card.color;
 };
 
-const isValidFoundationMove = (card) => {
-  const foundation = state.foundations[SUITS.indexOf(card.suit)];
-  if (foundation.length === 0) return card.rankValue === 1;
-  return foundation[foundation.length - 1].rankValue === card.rankValue - 1;
-};
+// ── State mutations ───────────────────────────────────────────────────────────
 
-const takeSnapshot = () => JSON.parse(JSON.stringify({
-  tableau: state.tableau,
-  foundations: state.foundations,
-  stock: state.stock,
-  waste: state.waste,
-  freeCell: state.freeCell,
-  freeCellActive: state.freeCellActive,
-  moveCount: state.moveCount,
-}));
+const sawayamaExtra = () => ({ freeCell: state.freeCell, freeCellActive: state.freeCellActive });
 
-const saveUndo = () => {
-  if (state.undoStack.length >= 3) state.undoStack.shift();
-  state.undoStack.push(takeSnapshot());
-};
-
-const doMoveCard = (from, to) => {
-  saveUndo();
+const moveCard = (from, to) => {
+  saveUndo(state, sawayamaExtra());
   let cards;
   if (from.type === 'tableau') {
     cards = state.tableau[from.index].splice(from.cardIndex);
@@ -63,9 +54,9 @@ const doMoveCard = (from, to) => {
   state.moveCount++;
 };
 
-const doDrawFromStock = () => {
+const drawFromStock = () => {
   if (state.stock.length === 0) return false;
-  saveUndo();
+  saveUndo(state, sawayamaExtra());
   const count = Math.min(3, state.stock.length);
   for (let i = 0; i < count; i++) {
     const card = state.stock.pop();
@@ -76,6 +67,8 @@ const doDrawFromStock = () => {
   state.moveCount++;
   return true;
 };
+
+// ── Game Module API ───────────────────────────────────────────────────────────
 
 /**
  * Sawayama Solitaire game module implementing the standard game API.
@@ -247,7 +240,7 @@ export const SawayamaGame = {
       return isValidTableauMove(cards[0], parseInt(toPileId.slice(1)));
     }
     if (toPileId.startsWith('f')) {
-      return cards.length === 1 && isValidFoundationMove(cards[0]);
+      return cards.length === 1 && isValidFoundationMove(cards[0], state.foundations);
     }
     return false;
   },
@@ -262,25 +255,25 @@ export const SawayamaGame = {
     let from;
     if (fromPileId.startsWith('t')) {
       const col = parseInt(fromPileId.slice(1));
-      from = { type: 'tableau', index: col, cardIndex: state.tableau[col].indexOf(cards[0]) };
+      from = Loc.tableau(col, state.tableau[col].indexOf(cards[0]));
     } else if (fromPileId === 'waste') {
-      from = { type: 'waste' };
+      from = Loc.waste();
     } else if (fromPileId.startsWith('f')) {
-      from = { type: 'foundation', index: parseInt(fromPileId.slice(1)) };
+      from = Loc.foundation(parseInt(fromPileId.slice(1)));
     } else if (fromPileId === 'stock') {
-      from = { type: 'freecell' };
+      from = Loc.freecell();
     }
 
     let to;
     if (toPileId.startsWith('t')) {
-      to = { type: 'tableau', index: parseInt(toPileId.slice(1)) };
+      to = Loc.tableau(parseInt(toPileId.slice(1)));
     } else if (toPileId.startsWith('f')) {
-      to = { type: 'foundation' };
+      to = Loc.foundation();
     } else if (toPileId === 'stock') {
-      to = { type: 'freecell' };
+      to = Loc.freecell();
     }
 
-    doMoveCard(from, to);
+    moveCard(from, to);
   },
 
   /**
@@ -290,10 +283,7 @@ export const SawayamaGame = {
    * @returns {string|null}
    */
   getAutoMoveTarget(cards, fromPileId) {
-    if (cards.length !== 1) return null;
-    const card = cards[0];
-    if (!isValidFoundationMove(card)) return null;
-    return `f${SUITS.indexOf(card.suit)}`;
+    return getAutoMoveTargetUtil(cards, fromPileId, state.foundations);
   },
 
   /**
@@ -304,7 +294,7 @@ export const SawayamaGame = {
    */
   onPileClick(pileId) {
     if (pileId !== 'stock' || state.freeCellActive) return false;
-    return doDrawFromStock();
+    return drawFromStock();
   },
 
   /**
@@ -322,6 +312,6 @@ export const SawayamaGame = {
    * @returns {boolean} true if all 52 cards are on the foundations
    */
   checkWin() {
-    return state.foundations.every(f => f.length === 13);
+    return checkWin(state.foundations);
   },
 };

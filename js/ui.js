@@ -3,15 +3,28 @@ import { createCardElement } from './card.js';
 
 const CONFETTI_COLORS = ['#FFD700', '#FF4444', '#44BBFF', '#FF88FF', '#44FF88', '#FFAA00'];
 
+// active game module
 let game;
+
+// HTML5 drag state
 let dragState = null;
+
+// click-to-select state
 let selectState = null;
+
+// timer
 let timerInterval = null;
 let timerSeconds = 0;
 let timerStarted = false;
+
+// one-time listener guard
 let listenersAttached = false;
+
+// touch drag state
 let touchDragState = null;
 let touchCloneEl = null;
+
+// double-tap detection
 let lastTapTime = 0;
 let lastTapTarget = null;
 
@@ -120,6 +133,34 @@ function buildRow(rowEl, pileIds) {
 
 const FAN_COUNT = 3;
 
+const positionFlat = (cardEls) => {
+  cardEls.forEach(el => { el.style.top = '0'; });
+};
+
+const positionStacked = (container, cardEls, faceUpStart, cardH, faceUpOff, faceDownOff) => {
+  let top = 0;
+  cardEls.forEach((el, index) => {
+    el.style.top = `${top}px`;
+    top += index >= faceUpStart ? faceUpOff : faceDownOff;
+  });
+  if (cardEls.length > 0) {
+    const lastIsFaceUp = (cardEls.length - 1) >= faceUpStart;
+    const lastOff = lastIsFaceUp ? faceUpOff : faceDownOff;
+    container.style.height = `${(top - lastOff) + cardH}px`;
+  }
+};
+
+const positionFan = (container, cardEls, cardW, fanOff) => {
+  const len = cardEls.length;
+  cardEls.forEach((el, index) => {
+    const fromEnd = len - 1 - index;
+    if (fromEnd < FAN_COUNT) el.style.left = `${(FAN_COUNT - 1 - fromEnd) * fanOff}px`;
+  });
+  if (len > 0) {
+    container.style.width = `${(Math.min(len, FAN_COUNT) - 1) * fanOff + cardW}px`;
+  }
+};
+
 const renderGame = () => {
   for (const pile of game.getPiles()) renderPile(pile);
 };
@@ -146,39 +187,23 @@ const renderPile = ({ id, type, cards, stackStyle, faceCount, isClickable, empty
   const faceUpOff = Math.round(cardH * 0.25);
   const faceDownOff = Math.round(cardH * 0.179);
   const fanOff = Math.round(cardW * 0.25);
-  let top = 0;
 
-  cards.forEach((card, index) => {
+  const cardEls = cards.map((card, index) => {
     const isFaceUp = index >= faceUpStart;
     const cardEl = createCardElement({ ...card, faceUp: isFaceUp });
-
-    if (stackStyle === 'stacked') {
-      cardEl.style.top = `${top}px`;
-      top += isFaceUp ? faceUpOff : faceDownOff;
-    } else if (stackStyle === 'fan') {
-      const fromEnd = cards.length - 1 - index;
-      if (fromEnd < FAN_COUNT) cardEl.style.left = `${(FAN_COUNT - 1 - fromEnd) * fanOff}px`;
-    } else {
-      cardEl.style.top = '0';
-    }
-
     if (isFaceUp) {
       cardEl.draggable = true;
       cardEl.dataset.pileId = id;
       cardEl.dataset.cardIndex = index;
     }
-    container.appendChild(cardEl);
+    return cardEl;
   });
 
-  if (stackStyle === 'stacked' && cards.length > 0) {
-    const lastIsFaceUp = (cards.length - 1) >= faceUpStart;
-    const lastOff = lastIsFaceUp ? faceUpOff : faceDownOff;
-    container.style.height = `${(top - lastOff) + cardH}px`;
-  }
-  if (stackStyle === 'fan' && cards.length > 0) {
-    const fanCount = Math.min(cards.length, FAN_COUNT);
-    container.style.width = `${(fanCount - 1) * fanOff + cardW}px`;
-  }
+  if (stackStyle === 'stacked') positionStacked(container, cardEls, faceUpStart, cardH, faceUpOff, faceDownOff);
+  else if (stackStyle === 'fan') positionFan(container, cardEls, cardW, fanOff);
+  else positionFlat(cardEls);
+
+  cardEls.forEach(el => container.appendChild(el));
 
   if (badge != null) {
     const badgeEl = document.createElement('div');
@@ -218,7 +243,7 @@ const handleDragStart = (e) => {
   const cards = game.getDraggableCards(pileId, cardIndex);
   if (cards.length === 0) { e.preventDefault(); return; }
 
-  dragState = { cards, fromPileId: pileId };
+  dragState = { fromPileId: pileId, cards };
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', '');
 };
@@ -361,16 +386,9 @@ const handleTouchCancel = () => {
 
 // ── Click handling ────────────────────────────────────────────────────────────
 
-const handleClick = (e) => {
-  if (e.detail >= 2) return;
-  if (dragState || touchDragState?.hasDragged) return;
-
-  const cardEl = e.target.closest('[data-card-index]');
-  const containerEl = e.target.closest('.pile-container');
-  const pileEl = e.target.closest('[data-pile-id]');
-
-  // Double-tap auto-move for touch (dblclick is unreliable on mobile)
-  const now = Date.now();
+// Returns true if a double-tap auto-move was executed (caller should early-return).
+// Always updates lastTapTime/lastTapTarget as a side-effect.
+const tryDoubleTap = (cardEl, now) => {
   if (cardEl && now - lastTapTime < DOUBLE_TAP_DELAY && lastTapTarget === cardEl) {
     lastTapTime = 0;
     lastTapTarget = null;
@@ -383,36 +401,50 @@ const handleClick = (e) => {
         clearSelection();
         game.executeMove(cards, pileId, target);
         afterMove();
-        return;
+        return true;
       }
     }
   }
   lastTapTime = cardEl ? now : 0;
   lastTapTarget = cardEl ?? null;
+  return false;
+};
 
-  if (selectState) {
-    const toPileId = containerEl?.dataset.pileId;
-    if (toPileId && game.isValidMove(selectState.cards, selectState.fromPileId, toPileId)) {
-      game.executeMove(selectState.cards, selectState.fromPileId, toPileId);
-      selectState = null;
-      afterMove();
-      return;
-    }
-    clearSelection();
-    if (cardEl) {
-      doSelect(cardEl);
-    } else if (pileEl) {
-      const changed = game.onPileClick(pileEl.dataset.pileId);
-      if (changed) afterMove();
-    }
-    return;
+// Returns true if selection was active and fully handled (caller should early-return).
+const tryCompleteSelection = (containerEl, cardEl, pileEl) => {
+  if (!selectState) return false;
+  const toPileId = containerEl?.dataset.pileId;
+  if (toPileId && game.isValidMove(selectState.cards, selectState.fromPileId, toPileId)) {
+    game.executeMove(selectState.cards, selectState.fromPileId, toPileId);
+    selectState = null;
+    afterMove();
+    return true;
   }
+  clearSelection();
+  if (cardEl) {
+    doSelect(cardEl);
+  } else if (pileEl) {
+    const changed = game.onPileClick(pileEl.dataset.pileId);
+    if (changed) afterMove();
+  }
+  return true;
+};
+
+const handleClick = (e) => {
+  if (e.detail >= 2) return;
+  if (dragState || touchDragState?.hasDragged) return;
+
+  const cardEl = e.target.closest('[data-card-index]');
+  const containerEl = e.target.closest('.pile-container');
+  const pileEl = e.target.closest('[data-pile-id]');
+
+  if (tryDoubleTap(cardEl, Date.now())) return;
+  if (tryCompleteSelection(containerEl, cardEl, pileEl)) return;
 
   if (cardEl) {
     doSelect(cardEl);
     return;
   }
-
   if (pileEl) {
     const changed = game.onPileClick(pileEl.dataset.pileId);
     if (changed) afterMove();
@@ -440,11 +472,19 @@ const handleDblClick = (e) => {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+const REQUIRED_METHODS = [
+  'initGame', 'getLayout', 'getConfig', 'getPiles', 'getDraggableCards',
+  'getAutoMoveTarget', 'isValidMove', 'executeMove', 'onPileClick',
+  'undoLastMove', 'checkWin', 'getMoveCount',
+];
+
 /**
  * Initialises the UI with a game module and starts rendering.
  * @param {object} gameModule - implements the game module API
  */
 export function initUI(gameModule) {
+  const missing = REQUIRED_METHODS.filter(m => typeof gameModule[m] !== 'function');
+  if (missing.length > 0) throw new Error(`Game module missing: ${missing.join(', ')}`);
   game = gameModule;
   stopTimer();
   timerSeconds = 0;

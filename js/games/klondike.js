@@ -1,4 +1,10 @@
-const SUITS = ['♠', '♥', '♦', '♣'];
+import {
+  SUITS,
+  isValidFoundationMove, checkWin, getAutoMoveTarget as getAutoMoveTargetUtil,
+  saveUndo, Loc,
+} from './gameUtils.js';
+
+// ── State ─────────────────────────────────────────────────────────────────────
 
 const state = {
   tableau: [],
@@ -9,6 +15,8 @@ const state = {
   undoStack: [],
 };
 
+// ── Validation ────────────────────────────────────────────────────────────────
+
 const isValidTableauMove = (card, col) => {
   const column = state.tableau[col];
   if (column.length === 0) return card.rankValue === 13;
@@ -16,27 +24,10 @@ const isValidTableauMove = (card, col) => {
   return top.faceUp && top.rankValue === card.rankValue + 1 && top.color !== card.color;
 };
 
-const isValidFoundationMove = (card) => {
-  const foundation = state.foundations[SUITS.indexOf(card.suit)];
-  if (foundation.length === 0) return card.rankValue === 1;
-  return foundation[foundation.length - 1].rankValue === card.rankValue - 1;
-};
+// ── State mutations ───────────────────────────────────────────────────────────
 
-const takeSnapshot = () => JSON.parse(JSON.stringify({
-  tableau: state.tableau,
-  foundations: state.foundations,
-  stock: state.stock,
-  waste: state.waste,
-  moveCount: state.moveCount,
-}));
-
-const saveUndo = () => {
-  if (state.undoStack.length >= 3) state.undoStack.shift();
-  state.undoStack.push(takeSnapshot());
-};
-
-const doMoveCard = (from, to) => {
-  saveUndo();
+const moveCard = (from, to) => {
+  saveUndo(state);
   let cards;
   if (from.type === 'tableau') {
     cards = state.tableau[from.index].splice(from.cardIndex);
@@ -56,18 +47,20 @@ const doMoveCard = (from, to) => {
   state.moveCount++;
 };
 
-const doDrawFromStock = () => {
+const drawFromStock = () => {
   if (state.stock.length === 0) {
     state.stock = [...state.waste].reverse().map(c => ({ ...c, faceUp: false }));
     state.waste = [];
     return;
   }
-  saveUndo();
+  saveUndo(state);
   const card = state.stock.pop();
   card.faceUp = true;
   state.waste.push(card);
   state.moveCount++;
 };
+
+// ── Private helpers ───────────────────────────────────────────────────────────
 
 const countFaceUp = (cards) => {
   let count = 0;
@@ -77,6 +70,8 @@ const countFaceUp = (cards) => {
   }
   return count;
 };
+
+// ── Game Module API ───────────────────────────────────────────────────────────
 
 /**
  * Klondike Solitaire game module implementing the standard game API.
@@ -201,10 +196,7 @@ export const KlondikeGame = {
    * @returns {string|null}
    */
   getAutoMoveTarget(cards, fromPileId) {
-    if (cards.length !== 1) return null;
-    const card = cards[0];
-    if (!isValidFoundationMove(card)) return null;
-    return `f${SUITS.indexOf(card.suit)}`;
+    return getAutoMoveTargetUtil(cards, fromPileId, state.foundations);
   },
 
   /**
@@ -219,7 +211,7 @@ export const KlondikeGame = {
       return isValidTableauMove(cards[0], parseInt(toPileId.slice(1)));
     }
     if (toPileId.startsWith('f')) {
-      return cards.length === 1 && isValidFoundationMove(cards[0]);
+      return cards.length === 1 && isValidFoundationMove(cards[0], state.foundations);
     }
     return false;
   },
@@ -234,18 +226,18 @@ export const KlondikeGame = {
     let from;
     if (fromPileId.startsWith('t')) {
       const col = parseInt(fromPileId.slice(1));
-      from = { type: 'tableau', index: col, cardIndex: state.tableau[col].indexOf(cards[0]) };
+      from = Loc.tableau(col, state.tableau[col].indexOf(cards[0]));
     } else if (fromPileId === 'waste') {
-      from = { type: 'waste' };
+      from = Loc.waste();
     } else {
-      from = { type: 'foundation', index: parseInt(fromPileId.slice(1)) };
+      from = Loc.foundation(parseInt(fromPileId.slice(1)));
     }
 
     const to = toPileId.startsWith('t')
-      ? { type: 'tableau', index: parseInt(toPileId.slice(1)) }
-      : { type: 'foundation' };
+      ? Loc.tableau(parseInt(toPileId.slice(1)))
+      : Loc.foundation();
 
-    doMoveCard(from, to);
+    moveCard(from, to);
   },
 
   /**
@@ -255,7 +247,7 @@ export const KlondikeGame = {
    */
   onPileClick(pileId) {
     if (pileId !== 'stock') return false;
-    doDrawFromStock();
+    drawFromStock();
     return true;
   },
 
@@ -273,7 +265,7 @@ export const KlondikeGame = {
    * @returns {boolean} true if all 52 cards are on the foundations
    */
   checkWin() {
-    return state.foundations.every(f => f.length === 13);
+    return checkWin(state.foundations);
   },
 
   /**

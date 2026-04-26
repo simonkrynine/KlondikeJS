@@ -17,25 +17,23 @@ function startGame(gameModule) {
 }
 
 function buildPlaceholderLayout() {
-  buildPlaceholderRow(document.getElementById('control-row'), [
-    { type: 'stock' }, { type: 'waste' }, 'gap',
-    { type: 'foundation' }, { type: 'foundation' }, { type: 'foundation' }, { type: 'foundation' },
-  ]);
-  buildPlaceholderRow(document.getElementById('play-area'), [
-    { type: 'tableau' }, { type: 'tableau' }, { type: 'tableau' }, { type: 'tableau' },
-    { type: 'tableau' }, { type: 'tableau' }, { type: 'tableau' },
-  ]);
+  const { controlRow, playArea } = KlondikeGame.getLayout();
+  buildPlaceholderRow(document.getElementById('control-row'), controlRow);
+  buildPlaceholderRow(document.getElementById('play-area'), playArea);
 }
 
-function buildPlaceholderRow(rowEl, items) {
-  for (const item of items) {
-    if (item === 'gap') {
+function buildPlaceholderRow(rowEl, pileIds) {
+  for (const pileId of pileIds) {
+    if (pileId === 'gap') {
       const gap = document.createElement('div');
       gap.className = 'gap';
       rowEl.appendChild(gap);
     } else {
+      const type = pileId.startsWith('f') ? 'foundation'
+        : pileId.startsWith('t') ? 'tableau'
+        : pileId;
       const div = document.createElement('div');
-      div.className = `pile-container pile-container--${item.type}`;
+      div.className = `pile-container pile-container--${type}`;
       const empty = document.createElement('div');
       empty.className = 'pile-empty';
       div.appendChild(empty);
