@@ -1,7 +1,7 @@
 import {
   SUITS,
   isValidFoundationMove, checkWin, getAutoMoveTarget as getAutoMoveTargetUtil,
-  saveUndo, Loc,
+  Loc,
 } from './gameUtils.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -14,7 +14,6 @@ const state = {
   freeCell: null,
   freeCellActive: false,
   moveCount: 0,
-  undoStack: [],
 };
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -28,10 +27,7 @@ const isValidTableauMove = (card, col) => {
 
 // ── State mutations ───────────────────────────────────────────────────────────
 
-const sawayamaExtra = () => ({ freeCell: state.freeCell, freeCellActive: state.freeCellActive });
-
 const moveCard = (from, to) => {
-  saveUndo(state, sawayamaExtra());
   let cards;
   if (from.type === 'tableau') {
     cards = state.tableau[from.index].splice(from.cardIndex);
@@ -56,7 +52,6 @@ const moveCard = (from, to) => {
 
 const drawFromStock = () => {
   if (state.stock.length === 0) return false;
-  saveUndo(state, sawayamaExtra());
   const count = Math.min(3, state.stock.length);
   for (let i = 0; i < count; i++) {
     const card = state.stock.pop();
@@ -108,7 +103,6 @@ export const SawayamaGame = {
     state.freeCell = null;
     state.freeCellActive = false;
     state.moveCount = 0;
-    state.undoStack = [];
 
     let cardIndex = 0;
     for (let col = 0; col < 7; col++) {
@@ -246,7 +240,7 @@ export const SawayamaGame = {
   },
 
   /**
-   * Execute a validated move. Mutates state and saves undo snapshot.
+   * Execute a validated move. Mutates state.
    * @param {Object[]} cards
    * @param {string} fromPileId
    * @param {string} toPileId
@@ -295,17 +289,6 @@ export const SawayamaGame = {
   onPileClick(pileId) {
     if (pileId !== 'stock' || state.freeCellActive) return false;
     return drawFromStock();
-  },
-
-  /**
-   * Revert the most recent move (up to 3 moves back).
-   * Restores freeCellActive and freeCell to their pre-move values.
-   * @returns {boolean} true if there was something to undo
-   */
-  undoLastMove() {
-    if (!state.undoStack.length) return false;
-    Object.assign(state, state.undoStack.pop());
-    return true;
   },
 
   /**

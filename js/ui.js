@@ -1,7 +1,8 @@
 import { createDeck, shuffleDeck } from './deck.js';
 import { createCardElement } from './card.js';
 
-const CONFETTI_COLORS = ['#FFD700', '#FF4444', '#44BBFF', '#FF88FF', '#44FF88', '#FFAA00'];
+const CONFETTI_SUITS = ['♠', '♥', '♦', '♣'];
+const CONFETTI_SUIT_COLORS = { '♥': '#2e8f7a', '♦': '#2e8f7a', '♠': '#d4ede8', '♣': '#d4ede8' };
 
 // active game module
 let game;
@@ -59,12 +60,46 @@ const stopTimer = () => {
   timerInterval = null;
 };
 
+// ── FLIP animation ────────────────────────────────────────────────────────────
+
+const captureCardPositions = () => {
+  const positions = {};
+  document.querySelectorAll('.card[data-suit]').forEach(el => {
+    positions[el.dataset.suit + el.dataset.rank] = el.getBoundingClientRect();
+  });
+  return positions;
+};
+
+const animateCardMoves = (snapshot) => {
+  const movers = [];
+  document.querySelectorAll('.card[data-suit]').forEach(el => {
+    const key = el.dataset.suit + el.dataset.rank;
+    const before = snapshot[key];
+    if (!before) return;
+    const after = el.getBoundingClientRect();
+    const dx = before.left - after.left;
+    const dy = before.top - after.top;
+    if (dx === 0 && dy === 0) return;
+    el.style.transition = 'none';
+    el.style.transform = `translate(${dx}px, ${dy}px)`;
+    movers.push(el);
+  });
+  if (movers.length === 0) return;
+  movers[0].getBoundingClientRect();
+  movers.forEach(el => {
+    el.style.transition = 'transform 150ms ease-in-out';
+    el.style.transform = '';
+  });
+};
+
 // ── Post-move hook ────────────────────────────────────────────────────────────
 
 const afterMove = () => {
   startTimer();
+  const snapshot = captureCardPositions();
   renderGame();
   updateStats();
+  animateCardMoves(snapshot);
   if (game.checkWin()) showWinOverlay();
 };
 
@@ -79,8 +114,10 @@ const showWinOverlay = () => {
   for (let i = 0; i < 60; i++) {
     const piece = document.createElement('div');
     piece.className = 'confetti-piece';
+    const suit = CONFETTI_SUITS[Math.floor(Math.random() * CONFETTI_SUITS.length)];
+    piece.textContent = suit;
+    piece.style.color = CONFETTI_SUIT_COLORS[suit];
     piece.style.left = `${Math.random() * 100}vw`;
-    piece.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
     piece.style.animationDuration = `${1.5 + Math.random() * 2}s`;
     piece.style.animationDelay = `${Math.random() * 2}s`;
     container.appendChild(piece);
@@ -475,7 +512,7 @@ const handleDblClick = (e) => {
 const REQUIRED_METHODS = [
   'initGame', 'getLayout', 'getConfig', 'getPiles', 'getDraggableCards',
   'getAutoMoveTarget', 'isValidMove', 'executeMove', 'onPileClick',
-  'undoLastMove', 'checkWin', 'getMoveCount',
+  'checkWin', 'getMoveCount',
 ];
 
 /**
@@ -500,17 +537,7 @@ function setupListeners() {
   if (listenersAttached) return;
   listenersAttached = true;
 
-  document.getElementById('btn-main-menu').addEventListener('click', () => {
-    stopTimer();
-    document.getElementById('menu-overlay').classList.remove('hidden');
-  });
   document.getElementById('btn-new-game').addEventListener('click', startNewGame);
-  document.getElementById('btn-undo').addEventListener('click', () => {
-    if (game.undoLastMove()) {
-      renderGame();
-      updateStats();
-    }
-  });
   document.getElementById('btn-play-again').addEventListener('click', startNewGame);
 
   document.addEventListener('dragstart', handleDragStart);
@@ -528,12 +555,5 @@ function setupListeners() {
   document.addEventListener('click', handleClick);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') clearSelection();
-    if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      if (game.undoLastMove()) {
-        renderGame();
-        updateStats();
-      }
-    }
   });
 }

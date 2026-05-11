@@ -9,8 +9,6 @@ import {
 const state = {
   tableau: [],
   foundations: [],
-  stock: [],
-  waste: [],
   moveCount: 0,
 };
 
@@ -31,8 +29,6 @@ const moveCard = (from, to) => {
     cards = state.tableau[from.index].splice(from.cardIndex);
     const col = state.tableau[from.index];
     if (col.length > 0 && !col[col.length - 1].faceUp) col[col.length - 1].faceUp = true;
-  } else if (from.type === 'waste') {
-    cards = [state.waste.pop()];
   } else {
     cards = [state.foundations[from.index].pop()];
   }
@@ -42,18 +38,6 @@ const moveCard = (from, to) => {
   } else {
     state.foundations[SUITS.indexOf(cards[0].suit)].push(cards[0]);
   }
-  state.moveCount++;
-};
-
-const drawFromStock = () => {
-  if (state.stock.length === 0) {
-    state.stock = [...state.waste].reverse().map(c => ({ ...c, faceUp: false }));
-    state.waste = [];
-    return;
-  }
-  const card = state.stock.pop();
-  card.faceUp = true;
-  state.waste.push(card);
   state.moveCount++;
 };
 
@@ -71,47 +55,49 @@ const countFaceUp = (cards) => {
 // ── Game Module API ───────────────────────────────────────────────────────────
 
 /**
- * Klondike Solitaire game module implementing the standard game API.
+ * Yukon Solitaire game module implementing the standard game API.
+ * Differences from Klondike: no stock or waste; all 52 cards dealt into
+ * 7 columns with the top 5 face-up; any face-up card lifts all cards above
+ * it regardless of sequence validity; empty columns accept Kings only.
  */
-export const KlondikeGame = {
+export const YukonGame = {
 
   /**
    * Initialise a new game from a freshly shuffled deck.
+   * Column depths: [1, 6, 7, 8, 9, 10, 11]. Top 5 cards per column face-up.
    * @param {Object[]} deck - 52 card objects from deck.js
    */
   initGame(deck) {
     state.tableau = Array.from({ length: 7 }, () => []);
     state.foundations = Array.from({ length: 4 }, () => []);
-    state.stock = [];
-    state.waste = [];
     state.moveCount = 0;
 
+    const sizes = [1, 6, 7, 8, 9, 10, 11];
     let cardIndex = 0;
     for (let col = 0; col < 7; col++) {
-      for (let row = 0; row <= col; row++) {
-        state.tableau[col].push({ ...deck[cardIndex++], faceUp: row === col });
+      const size = sizes[col];
+      const faceUpStart = Math.max(0, size - 5);
+      for (let row = 0; row < size; row++) {
+        state.tableau[col].push({ ...deck[cardIndex++], faceUp: row >= faceUpStart });
       }
     }
-    state.stock = deck.slice(cardIndex).map(c => ({ ...c, faceUp: false }));
   },
 
   /**
-   * Describes where piles appear in the DOM.
    * @returns {{ controlRow: string[], playArea: string[] }}
    */
   getLayout() {
     return {
-      controlRow: ['stock', 'waste', 'gap', 'f0', 'f1', 'f2', 'f3'],
+      controlRow: ['gap', 'gap', 'gap', 'f0', 'f1', 'f2', 'f3'],
       playArea: ['t0', 't1', 't2', 't3', 't4', 't5', 't6'],
     };
   },
 
   /**
-   * Static game metadata.
    * @returns {{ id: string, title: string }}
    */
   getConfig() {
-    return { id: 'klondike', title: 'Klondike Solitaire' };
+    return { id: 'yukon', title: 'Yukon Solitaire' };
   },
 
   /**
@@ -120,24 +106,6 @@ export const KlondikeGame = {
    */
   getPiles() {
     return [
-      {
-        id: 'stock',
-        type: 'stock',
-        cards: [...state.stock],
-        stackStyle: 'flat',
-        faceCount: 0,
-        isClickable: true,
-        emptyLabel: '↺',
-      },
-      {
-        id: 'waste',
-        type: 'waste',
-        cards: [...state.waste],
-        stackStyle: 'flat',
-        faceCount: state.waste.length > 0 ? 1 : 0,
-        isClickable: false,
-        emptyLabel: '',
-      },
       ...state.foundations.map((pile, i) => ({
         id: `f${i}`,
         type: 'foundation',
@@ -161,6 +129,7 @@ export const KlondikeGame = {
 
   /**
    * Returns draggable cards starting at cardIndex, or [] if not draggable.
+   * Any face-up card lifts all cards above it — no sequence check.
    * @param {string} pileId
    * @param {number} cardIndex
    * @returns {Object[]}
@@ -171,10 +140,6 @@ export const KlondikeGame = {
       const cards = state.tableau[col];
       if (cardIndex < 0 || cardIndex >= cards.length || !cards[cardIndex].faceUp) return [];
       return cards.slice(cardIndex);
-    }
-    if (pileId === 'waste') {
-      if (state.waste.length === 0 || cardIndex !== state.waste.length - 1) return [];
-      return [state.waste[state.waste.length - 1]];
     }
     if (pileId.startsWith('f')) {
       const idx = parseInt(pileId.slice(1));
@@ -197,6 +162,7 @@ export const KlondikeGame = {
 
   /**
    * Pure move validation — does not mutate state.
+   * Tableau: only cards[0] (bottom of group) must satisfy rank/colour rule.
    * @param {Object[]} cards
    * @param {string} fromPileId
    * @param {string} toPileId
@@ -213,7 +179,7 @@ export const KlondikeGame = {
   },
 
   /**
-   * Execute a validated move. Mutates state.
+   * Execute a validated move. Mutates state and flips newly exposed cards.
    * @param {Object[]} cards
    * @param {string} fromPileId
    * @param {string} toPileId
@@ -223,8 +189,6 @@ export const KlondikeGame = {
     if (fromPileId.startsWith('t')) {
       const col = parseInt(fromPileId.slice(1));
       from = Loc.tableau(col, state.tableau[col].indexOf(cards[0]));
-    } else if (fromPileId === 'waste') {
-      from = Loc.waste();
     } else {
       from = Loc.foundation(parseInt(fromPileId.slice(1)));
     }
@@ -237,14 +201,12 @@ export const KlondikeGame = {
   },
 
   /**
-   * Called when the user clicks on a pile area (not on a card).
+   * No stock — pile clicks are a no-op in Yukon.
    * @param {string} pileId
-   * @returns {boolean} true if state changed
+   * @returns {boolean}
    */
   onPileClick(pileId) {
-    if (pileId !== 'stock') return false;
-    drawFromStock();
-    return true;
+    return false;
   },
 
   /**

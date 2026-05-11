@@ -17,13 +17,17 @@ export const createCardElement = (card) => {
 
     const top = document.createElement('div');
     top.classList.add('card-label', 'card-label--top');
-    top.append(makeRank(card.rank), makeSuit(card.suit));
+    top.append(makeRank(card.rank));
+
+    const suitEl = document.createElement('div');
+    suitEl.classList.add('card-suit');
+    suitEl.textContent = card.suit;
 
     const bottom = document.createElement('div');
     bottom.classList.add('card-label', 'card-label--bottom');
-    bottom.append(makeRank(card.rank), makeSuit(card.suit));
+    bottom.append(makeRank(card.rank));
 
-    el.append(top, bottom);
+    el.append(top, suitEl, bottom);
   } else {
     el.classList.add('face-down');
   }

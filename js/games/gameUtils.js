@@ -3,9 +3,6 @@
 /** @type {string[]} */
 export const SUITS = ['♠', '♥', '♦', '♣'];
 
-/** Maximum number of undo snapshots retained. */
-export const UNDO_DEPTH = 3;
-
 // ── Shared validation ─────────────────────────────────────────────────────────
 
 /**
@@ -39,34 +36,6 @@ export const getAutoMoveTarget = (cards, fromPileId, foundations) => {
   const card = cards[0];
   if (!isValidFoundationMove(card, foundations)) return null;
   return `f${SUITS.indexOf(card.suit)}`;
-};
-
-// ── Shared undo helpers ───────────────────────────────────────────────────────
-
-/**
- * Deep-clones the common game state fields plus any extra fields provided.
- * @param {Object} state - game state object (must have tableau, foundations, stock, waste, moveCount)
- * @param {Object} [extraFields={}] - additional state fields to snapshot (e.g. freeCell)
- * @returns {Object}
- */
-export const takeSnapshot = (state, extraFields = {}) =>
-  JSON.parse(JSON.stringify({
-    tableau: state.tableau,
-    foundations: state.foundations,
-    stock: state.stock,
-    waste: state.waste,
-    moveCount: state.moveCount,
-    ...extraFields,
-  }));
-
-/**
- * Pushes a snapshot onto the undo stack, evicting the oldest if at capacity.
- * @param {Object} state - game state object (must have undoStack)
- * @param {Object} [extraFields={}] - forwarded to takeSnapshot
- */
-export const saveUndo = (state, extraFields = {}) => {
-  if (state.undoStack.length >= UNDO_DEPTH) state.undoStack.shift();
-  state.undoStack.push(takeSnapshot(state, extraFields));
 };
 
 // ── Loc builder ───────────────────────────────────────────────────────────────
