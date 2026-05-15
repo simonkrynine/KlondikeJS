@@ -13,12 +13,19 @@
     <h1>Solitaire</h1>
     <div id="stats" class="stats">Moves: 0 | Time: 00:00</div>
     <div class="controls">
+      <button id="btn-rules">Rules</button>
       <button id="btn-new-game">New Game</button>
     </div>
   </header>
   <main>
     <div id="control-row" class="control-row"></div>
     <div id="play-area"   class="tableau-row"></div>
+    <div id="rules-overlay" class="rules-overlay hidden">
+      <div class="rules-box">
+        <ul id="rules-list"></ul>
+        <button id="btn-rules-ok">OK</button>
+      </div>
+    </div>
   </main>
 <div id="win-overlay" class="win-overlay hidden">
     <div id="win-confetti"></div>

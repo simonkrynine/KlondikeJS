@@ -1,5 +1,6 @@
 import { createDeck, shuffleDeck } from './deck.js';
 import { createCardElement } from './card.js';
+import { RULES } from './rules.js';
 
 const CONFETTI_SUITS = ['♠', '♥', '♦', '♣'];
 const CONFETTI_SUIT_COLORS = { '♥': '#2e8f7a', '♦': '#2e8f7a', '♠': '#d4ede8', '♣': '#d4ede8' };
@@ -21,6 +22,9 @@ let timerStarted = false;
 // one-time listener guard
 let listenersAttached = false;
 
+// rules overlay state
+let rulesOpen = false;
+
 // touch drag state
 let touchDragState = null;
 let touchCloneEl = null;
@@ -34,8 +38,10 @@ const DOUBLE_TAP_DELAY = 300;
 
 // ── CSS helpers ───────────────────────────────────────────────────────────────
 
-const getCssVar = (name) =>
-  parseInt(getComputedStyle(document.documentElement).getPropertyValue(name));
+const getCssVar = (name) => {
+  const val = parseInt(getComputedStyle(document.documentElement).getPropertyValue(name));
+  return isNaN(val) ? 0 : val;
+};
 
 // ── Stats & timer ─────────────────────────────────────────────────────────────
 
@@ -58,6 +64,19 @@ const startTimer = () => {
 const stopTimer = () => {
   clearInterval(timerInterval);
   timerInterval = null;
+};
+
+const pauseTimer = () => {
+  clearInterval(timerInterval);
+  timerInterval = null;
+};
+
+const resumeTimer = () => {
+  if (!timerStarted) return;
+  timerInterval = setInterval(() => {
+    timerSeconds++;
+    updateStats();
+  }, 1000);
 };
 
 // ── FLIP animation ────────────────────────────────────────────────────────────
@@ -90,6 +109,34 @@ const animateCardMoves = (snapshot) => {
     el.style.transition = 'transform 150ms ease-in-out';
     el.style.transform = '';
   });
+};
+
+// ── Rules overlay ─────────────────────────────────────────────────────────────
+
+const showRulesOverlay = () => {
+  rulesOpen = true;
+  clearSelection();
+  pauseTimer();
+  const { id } = game.getConfig();
+  const list = document.getElementById('rules-list');
+  list.innerHTML = '';
+  (RULES[id] ?? []).forEach(rule => {
+    const li = document.createElement('li');
+    li.textContent = rule;
+    list.appendChild(li);
+  });
+  document.getElementById('rules-overlay').classList.remove('hidden');
+};
+
+const hideRulesOverlay = () => {
+  rulesOpen = false;
+  document.getElementById('rules-overlay').classList.add('hidden');
+  resumeTimer();
+};
+
+const toggleRulesOverlay = () => {
+  if (rulesOpen) hideRulesOverlay();
+  else showRulesOverlay();
 };
 
 // ── Post-move hook ────────────────────────────────────────────────────────────
@@ -128,6 +175,7 @@ const startNewGame = () => {
   stopTimer();
   timerSeconds = 0;
   timerStarted = false;
+  hideRulesOverlay();
   document.getElementById('win-overlay').classList.add('hidden');
   const deck = shuffleDeck(createDeck());
   game.initGame(deck);
@@ -219,8 +267,8 @@ const renderPile = ({ id, type, cards, stackStyle, faceCount, isClickable, empty
   }
 
   const faceUpStart = cards.length - faceCount;
-  const cardH = getCssVar('--card-h');
-  const cardW = getCssVar('--card-w');
+  const cardH = getCssVar('--card-h') || 178;
+  const cardW = getCssVar('--card-w') || 127;
   const faceUpOff = Math.round(cardH * 0.25);
   const faceDownOff = Math.round(cardH * 0.179);
   const fanOff = Math.round(cardW * 0.25);
@@ -271,6 +319,7 @@ const doSelect = (cardEl) => {
 // ── Drag-and-drop ─────────────────────────────────────────────────────────────
 
 const handleDragStart = (e) => {
+  if (rulesOpen) return;
   const cardEl = e.target.closest('[data-card-index]');
   if (!cardEl) return;
 
@@ -290,7 +339,7 @@ const handleDragOver = (e) => {
   const containerEl = e.target.closest('.pile-container');
   if (!containerEl) return;
   const toPileId = containerEl.dataset.pileId;
-  if (game.isValidMove(dragState.cards, dragState.fromPileId, toPileId)) {
+  if (toPileId !== dragState.fromPileId && game.isValidMove(dragState.cards, dragState.fromPileId, toPileId)) {
     e.preventDefault();
     containerEl.classList.add('drop-valid');
   }
@@ -311,7 +360,7 @@ const handleDrop = (e) => {
   const toPileId = containerEl.dataset.pileId;
   containerEl.classList.remove('drop-valid');
 
-  if (game.isValidMove(dragState.cards, dragState.fromPileId, toPileId)) {
+  if (toPileId !== dragState.fromPileId && game.isValidMove(dragState.cards, dragState.fromPileId, toPileId)) {
     game.executeMove(dragState.cards, dragState.fromPileId, toPileId);
     afterMove();
   }
@@ -326,6 +375,7 @@ const handleDragEnd = () => {
 // ── Touch drag-and-drop ───────────────────────────────────────────────────────
 
 const handleTouchStart = (e) => {
+  if (rulesOpen) return;
   const cardEl = e.target.closest('[data-card-index]');
   if (!cardEl) return;
 
@@ -371,7 +421,7 @@ const handleTouchMove = (e) => {
     touchCloneEl.style.zIndex = '200';
     touchCloneEl.style.transform = 'scale(1.05)';
     touchCloneEl.style.transformOrigin = 'top left';
-    touchCloneEl.style.boxShadow = '0 8px 24px rgba(0,0,0,0.4)';
+    touchCloneEl.style.boxShadow = '0 8px 24px rgba(0, 229, 180, 0.20)';
     document.body.appendChild(touchCloneEl);
   }
 
@@ -385,7 +435,7 @@ const handleTouchMove = (e) => {
   const containerEl = elUnder?.closest('.pile-container');
   if (containerEl) {
     const toPileId = containerEl.dataset.pileId;
-    if (game.isValidMove(touchDragState.cards, touchDragState.fromPileId, toPileId)) {
+    if (toPileId !== touchDragState.fromPileId && game.isValidMove(touchDragState.cards, touchDragState.fromPileId, toPileId)) {
       containerEl.classList.add('drop-valid');
     }
   }
@@ -403,7 +453,7 @@ const handleTouchEnd = (e) => {
     const containerEl = elUnder?.closest('.pile-container');
     if (containerEl) {
       const toPileId = containerEl.dataset.pileId;
-      if (game.isValidMove(touchDragState.cards, touchDragState.fromPileId, toPileId)) {
+      if (toPileId !== touchDragState.fromPileId && game.isValidMove(touchDragState.cards, touchDragState.fromPileId, toPileId)) {
         game.executeMove(touchDragState.cards, touchDragState.fromPileId, toPileId);
         touchDragState = null;
         afterMove();
@@ -451,7 +501,7 @@ const tryDoubleTap = (cardEl, now) => {
 const tryCompleteSelection = (containerEl, cardEl, pileEl) => {
   if (!selectState) return false;
   const toPileId = containerEl?.dataset.pileId;
-  if (toPileId && game.isValidMove(selectState.cards, selectState.fromPileId, toPileId)) {
+  if (toPileId && toPileId !== selectState.fromPileId && game.isValidMove(selectState.cards, selectState.fromPileId, toPileId)) {
     game.executeMove(selectState.cards, selectState.fromPileId, toPileId);
     selectState = null;
     afterMove();
@@ -468,6 +518,7 @@ const tryCompleteSelection = (containerEl, cardEl, pileEl) => {
 };
 
 const handleClick = (e) => {
+  if (rulesOpen) return;
   if (e.detail >= 2) return;
   if (dragState || touchDragState?.hasDragged) return;
 
@@ -491,6 +542,7 @@ const handleClick = (e) => {
 // ── Double-click auto-move ────────────────────────────────────────────────────
 
 const handleDblClick = (e) => {
+  if (rulesOpen) return;
   const cardEl = e.target.closest('[data-card-index]');
   if (!cardEl) return;
 
@@ -526,6 +578,7 @@ export function initUI(gameModule) {
   stopTimer();
   timerSeconds = 0;
   timerStarted = false;
+  hideRulesOverlay();
   document.getElementById('win-overlay').classList.add('hidden');
   buildLayout();
   setupListeners();
@@ -537,6 +590,8 @@ function setupListeners() {
   if (listenersAttached) return;
   listenersAttached = true;
 
+  document.getElementById('btn-rules').addEventListener('click', toggleRulesOverlay);
+  document.getElementById('btn-rules-ok').addEventListener('click', hideRulesOverlay);
   document.getElementById('btn-new-game').addEventListener('click', startNewGame);
   document.getElementById('btn-play-again').addEventListener('click', startNewGame);
 
@@ -554,6 +609,9 @@ function setupListeners() {
   document.addEventListener('dblclick', handleDblClick);
   document.addEventListener('click', handleClick);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') clearSelection();
+    if (e.key === 'Escape') {
+      if (rulesOpen) hideRulesOverlay();
+      else clearSelection();
+    }
   });
 }

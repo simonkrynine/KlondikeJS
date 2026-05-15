@@ -123,6 +123,7 @@ button:hover {
   border-color: rgba(0, 229, 180, 0.45);
 }
 
+
 /* ── Layout rows ─────────────────────────────────────────── */
 
 .control-row {
@@ -243,12 +244,23 @@ button:hover {
 .card-label--top    { top: 5px;    left: 6px; }
 .card-label--bottom { bottom: 5px; right: 6px; transform: rotate(180deg); }
 
+.card-corner-suit {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-family: 'Syne', sans-serif;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .card-suit {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-family: 'Syne', sans-serif;
   font-weight: 700;
   line-height: 1;
@@ -289,6 +301,58 @@ button:hover {
   outline-offset: -2px;
   border-radius: 6px;
   background: var(--teal-dim);
+}
+
+/* ── Rules overlay ───────────────────────────────────────── */
+
+.rules-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.80);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.rules-box {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid rgba(0, 229, 180, 0.30);
+  border-radius: 8px;
+  padding: 32px 40px;
+  width: min(480px, 90%);
+  max-height: 70vh;
+  overflow-y: auto;
+  box-shadow: 0 0 60px rgba(0, 229, 180, 0.08);
+}
+
+.rules-box ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rules-box li {
+  position: relative;
+  padding-left: 1.3em;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.rules-box li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--teal);
+}
+
+.rules-box button {
+  display: block;
+  margin: 0 auto;
 }
 
 /* ── Win overlay ─────────────────────────────────────────── */
@@ -382,7 +446,9 @@ button:hover {
     --pile-gap: 14px;
   }
   body { padding: 8px 10px; }
-  .card-suit { font-size: 2.2rem; }
+  .card-label { font-size: 1.1rem; }
+  .card-corner-suit { font-size: 0.95rem; }
+  .card-suit { font-size: 1.85rem; }
 }
 
 @media (max-width: 500px) {
@@ -393,8 +459,14 @@ button:hover {
   }
   body { padding: 6px 8px; }
   main, .top-bar { max-width: 100%; }
-  .card-label { font-size: 0.7rem; }
-  .card-suit { font-size: 1.1rem; }
+  .top-bar h1 { font-size: 1rem; letter-spacing: 1px; }
   .top-bar h1::after { display: none; }
   .stats::before { display: none; }
+  .card-label { font-size: 0.7rem; }
+  .card-corner-suit { font-size: 0.72rem; }
+  .card-suit { font-size: 0.95rem; }
+  .card.face-down::after { inset: 2px; }
+  .win-box { padding: 28px 24px; }
+  .win-box h2 { font-size: 1.5rem; }
+  .rules-box { padding: 20px 16px; }
 }

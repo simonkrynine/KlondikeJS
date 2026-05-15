@@ -1,5 +1,4 @@
 const makeRank = (rank) => { const s = document.createElement('span'); s.textContent = rank; return s; };
-const makeSuit = (suit) => { const s = document.createElement('span'); s.textContent = suit; return s; };
 
 /**
  * Creates a DOM element representing a single playing card.
@@ -19,6 +18,10 @@ export const createCardElement = (card) => {
     top.classList.add('card-label', 'card-label--top');
     top.append(makeRank(card.rank));
 
+    const cornerSuit = document.createElement('div');
+    cornerSuit.classList.add('card-corner-suit');
+    cornerSuit.textContent = card.suit;
+
     const suitEl = document.createElement('div');
     suitEl.classList.add('card-suit');
     suitEl.textContent = card.suit;
@@ -27,7 +30,7 @@ export const createCardElement = (card) => {
     bottom.classList.add('card-label', 'card-label--bottom');
     bottom.append(makeRank(card.rank));
 
-    el.append(top, suitEl, bottom);
+    el.append(top, cornerSuit, suitEl, bottom);
   } else {
     el.classList.add('face-down');
   }
